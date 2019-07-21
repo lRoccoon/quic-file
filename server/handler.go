@@ -3,8 +3,6 @@ package server
 import (
 	"bufio"
 	"log"
-	"os"
-	"path/filepath"
 	"strings"
 )
 
@@ -20,14 +18,14 @@ func handlerCMD(cmd string, w *bufio.Writer) error {
 }
 
 func putHandler(path string, w *bufio.Writer) error {
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return err
-	}
-	file, err := os.Create(absPath)
-	if err != nil {
-		return err
-	}
-	sess.AcceptStream()
+	// absPath, err := filepath.Abs(path)
+	// if err != nil {
+	// 	return err
+	// }
+	// file, err := os.Create(absPath)
+	// if err != nil {
+	// 	return err
+	// }
+	// sess.AcceptStream()
 	return nil
 }
