@@ -12,8 +12,14 @@ import (
 	"math/big"
 	"os"
 
+	"github.com/873314461/quic-file/common"
+
 	"github.com/lucas-clemente/quic-go"
 )
+
+type FileServer struct {
+	sess quic.Session
+}
 
 // Server 启动服务端
 func Server(address string) {
@@ -27,23 +33,32 @@ func Server(address string) {
 			log.Printf("accept session error: %v\n", err)
 			continue
 		}
-		stream, err := sess.AcceptStream()
-		if err != nil {
-			log.Printf("accept stream error: %v\n", err)
-			return
-		}
-		buf, err := WriteFile("output.bin")
-		if err != nil {
-			log.Printf("open file error: %v\n", err)
+		cmd, err := sess.AcceptStream()
+		if err != nil && err.Error() != common.NoError || cmd == nil {
+			log.Printf("accept cmd stream error: %v, cmd: %v\n", err, cmd)
 			continue
 		}
-		recvByte, err := io.Copy(buf, stream)
-		buf.Flush()
-		if err != nil {
-			log.Printf("write file error: %v\n", err)
+		cmdReader := bufio.NewReader(cmd)
+		p := 0
+		data := make([]byte, 1024)
+		for {
+			n, err := cmdReader.Read(data[p:])
+			if err != nil {
+				if err == io.EOF || err.Error() == common.NoError {
+					break
+				}
+				log.Printf("read cmd stream error: %v\n", err)
+				break
+			}
+			p += n
+			log.Printf("recv cmd:%s\n", data)
 		}
-		log.Printf("recv %d bytes\n", recvByte)
+		handlerCMD(string(data), bufio.NewWriter(cmd))
 	}
+}
+
+func acceptClient(listener *quic.Listener) {
+
 }
 
 func WriteFile(file string) (*bufio.Writer, error) {

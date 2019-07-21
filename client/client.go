@@ -4,10 +4,8 @@ import (
 	"bufio"
 	"crypto/tls"
 	"fmt"
-	"io"
 	"log"
 	"os"
-	"time"
 
 	"github.com/lucas-clemente/quic-go"
 )
@@ -21,22 +19,20 @@ func Client(address, file string) {
 	if err != nil {
 		log.Fatalf("connect server error: %v\n", err)
 	}
-	stream, err := session.OpenStreamSync()
+	defer session.Close()
+	cmdStream, err := session.OpenStreamSync()
 	if err != nil {
 		log.Fatalf("open stream error: %v\n", err)
 	}
-	data, size := ReadFile(file)
-	if size > 4096*1024 {
-		size = 4096 * 1024
-	}
-	sendBytes, err := io.Copy(stream, data)
+	defer cmdStream.Close()
+	writer := bufio.NewWriter(cmdStream)
+	sendBytes, err := writer.WriteString("PUT test.bin")
 	if err != nil {
-		log.Fatalf("write stream error: %v\n", err)
+		log.Printf("write stream error: %v\n", err)
 	}
+	writer.Flush()
 	fmt.Printf("send %d bytes", sendBytes)
-	time.Sleep(time.Millisecond * 1)
-	stream.Close()
-	session.Close()
+	// time.Sleep(time.Microsecond * 10)
 }
 
 func ReadFile(file string) (*bufio.Reader, int64) {
