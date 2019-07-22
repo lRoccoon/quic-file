@@ -63,19 +63,26 @@ func (s *FileServer) handler(session *quic.Session) {
 	cmdReader := bufio.NewReader(cmdStream)
 	p := 0
 	data := make([]byte, 1024)
-	for {
-		n, err := cmdReader.Read(data[p:])
-		if err != nil {
-			if err == io.EOF || err.Error() == common.NoError {
+	for ok := true; ok; {
+		for {
+			n, err := cmdReader.Read(data[p:])
+			if err != nil {
+				ok = false
+				if err == io.EOF || err.Error() == common.NoError {
+					break
+				}
+				log.Printf("read cmd stream error: %v\n", err)
 				break
 			}
-			log.Printf("read cmd stream error: %v\n", err)
-			break
+			p += n
+			log.Printf("recv cmd:%s\n", data)
 		}
-		p += n
-		log.Printf("recv cmd:%s\n", data)
+		err := handlerCMD(session, bufio.NewWriter(cmdStream), string(data))
+		if err != nil {
+			log.Printf("handler cmd error: %v\n", err)
+		}
 	}
-	handlerCMD(string(data), bufio.NewWriter(cmdStream))
+	sess.Close()
 }
 
 func writeFile(file string) (*bufio.Writer, error) {

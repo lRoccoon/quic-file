@@ -7,10 +7,11 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"flag"
-	"github.com/873314461/quic-file/client"
-	"github.com/873314461/quic-file/server"
 	"log"
 	"math/big"
+
+	"github.com/873314461/quic-file/client"
+	"github.com/873314461/quic-file/server"
 )
 
 func main() {
@@ -50,6 +51,6 @@ func generateTLSConfig() *tls.Config {
 	}
 	return &tls.Config{
 		Certificates: []tls.Certificate{tlsCert},
-		NextProtos:   []string{"quic-echo-example"},
+		NextProtos:   []string{"quic-file"},
 	}
 }

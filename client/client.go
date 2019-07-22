@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/lucas-clemente/quic-go"
 )
@@ -13,13 +14,22 @@ import (
 func Client(address, file string) {
 	tlsConf := &tls.Config{
 		InsecureSkipVerify: true,
-		NextProtos:         []string{"quic-echo-example"},
+		NextProtos:         []string{"quic-file"},
 	}
 	session, err := quic.DialAddr(address, tlsConf, nil)
 	if err != nil {
 		log.Fatalf("connect server error: %v\n", err)
 	}
 	defer session.Close()
+	go func() {
+		s, err := session.AcceptStream()
+		if err != nil {
+			log.Fatalf("accept data stream error: %v", err)
+		}
+		defer s.Close()
+		s.Write([]byte("This is a test file."))
+		time.Sleep(time.Second)
+	}()
 	cmdStream, err := session.OpenStreamSync()
 	if err != nil {
 		log.Fatalf("open stream error: %v\n", err)
@@ -31,8 +41,8 @@ func Client(address, file string) {
 		log.Printf("write stream error: %v\n", err)
 	}
 	writer.Flush()
-	fmt.Printf("send %d bytes", sendBytes)
-	// time.Sleep(time.Microsecond * 10)
+	fmt.Printf("send %d bytes\n", sendBytes)
+	time.Sleep(time.Second)
 }
 
 func ReadFile(file string) (*bufio.Reader, int64) {
