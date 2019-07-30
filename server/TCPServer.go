@@ -1,7 +1,7 @@
 package server
 
 import (
-	"bufio"
+	//"bufio"
 	// "code.google.com/p/mahonia"
 	"fmt"
 	"io"
@@ -10,7 +10,7 @@ import (
 )
 
 // TCPServer 开启服务器
-func TCPServer(address string, port int, test bool) {
+func TCPServer(address ,file string, port int, test bool) {
 	ip := net.ParseIP(address)
 	addr := net.TCPAddr{ip, port, ""}
 	for {
@@ -27,7 +27,7 @@ func TCPServer(address string, port int, test bool) {
 		if test {
 			data := make([]byte, 1024)
 			wc, err := tcpcon.Read(data)
-			fo, err := os.Create("E:\\quic-file\\server\\" + string(data[0:wc]))
+			fo, err := os.Create(".\\server\\" + string(data[0:wc]))
 			if err != nil {
 				fmt.Println("file create error")
 			}
@@ -47,10 +47,7 @@ func TCPServer(address string, port int, test bool) {
 				}
 			}
 		} else {
-			fmt.Println("please input the name you want download")
-			reader := bufio.NewReader(os.Stdin)
-			input, _, _ := reader.ReadLine()
-			fi, _ := os.Open(string(input))
+			fi, _ := os.Open(".\\server\\" + file)
 			if err != nil {
 				panic(err)
 			}
@@ -58,7 +55,7 @@ func TCPServer(address string, port int, test bool) {
 			fiinfo, err := fi.Stat()
 			fmt.Println("the size of file is ", fiinfo.Size(), "bytes")
 			//send filename
-			_, err = tcpcon.Write(input)
+			_, err = tcpcon.Write([]byte(file))
 			if err != nil {
 				fmt.Println("file name send error")
 			}

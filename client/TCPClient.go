@@ -1,7 +1,7 @@
 package client
 
 import (
-	"bufio"
+	// "bufio"
 	//  "code.google.com/p/mahonia"
 	"fmt"
 	"io"
@@ -10,7 +10,7 @@ import (
 )
 
 // TCPClient 开启客户端
-func TCPClient(address string, test bool) {
+func TCPClient(address ,file string, test bool) {
 	conn, err := net.Dial("tcp", address)
 	if err != nil {
 		fmt.Println("connect server fail！")
@@ -18,10 +18,7 @@ func TCPClient(address string, test bool) {
 	}
 	defer conn.Close()
 	if test {
-		fmt.Println("send file to the destination,please input  filename:")
-		reader := bufio.NewReader(os.Stdin)
-		input, _, _ := reader.ReadLine()
-		fi, err := os.Open(string(input))
+		fi, err := os.Open(file)
 		if err != nil {
 			panic(err)
 		}
@@ -29,7 +26,7 @@ func TCPClient(address string, test bool) {
 		fiinfo, err := fi.Stat()
 		fmt.Println("the size of file is ", fiinfo.Size(), "bytes") //fiinfo.Size() return int64 type
 		//send filename
-		_, err = conn.Write(input)
+		_, err = conn.Write([] byte(file))
 		if err != nil {
 			fmt.Println("name send error")
 		}
@@ -51,7 +48,7 @@ func TCPClient(address string, test bool) {
 	} else if test == false {
 		data := make([]byte, 1024)
 		wc, err := conn.Read(data)
-		fi, err := os.Create("E:\\quic-file\\client\\" + string(data[0:wc]))
+		fi, err := os.Create(string(data[0:wc]))
 		if err != nil {
 			fmt.Println("file create error")
 		}
