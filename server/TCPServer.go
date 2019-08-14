@@ -1,64 +1,70 @@
 package server
 
 import (
-	//"bufio"
+	"bufio"
 	// "code.google.com/p/mahonia"
 	"fmt"
 	"io"
 	"net"
 	"os"
+	"strings"
 )
 
 // TCPServer 开启服务器
-func TCPServer(address ,file string, port int, test bool) {
+func TCPServer(address string, port int, test bool) {
 	ip := net.ParseIP(address)
 	addr := net.TCPAddr{ip, port, ""}
+
+	listener, err := net.ListenTCP("tcp", &addr) //TCPListener listen
+	if err != nil {
+	fmt.Println("Initialize error", err.Error())
+		return
+	} else {
+		fmt.Println("the server is listening")
+	}
 	for {
-		listener, err := net.ListenTCP("tcp", &addr) //TCPListener listen
-		if err != nil {
-			fmt.Println("Initialize error", err.Error())
-			return
-		}
 		tcpcon, err := listener.AcceptTCP() //TCPConn client
+		defer tcpcon.Close()
 		if err != nil {
 			fmt.Println(err.Error())
-			//continue
 		}
 		if test {
+			//接受文件名
 			data := make([]byte, 1024)
 			wc, err := tcpcon.Read(data)
-			fo, err := os.Create(".\\server\\" + string(data[0:wc]))
+			fmt.Println("the name of file you upload is :" + string(data[0:wc]))
+			//接受文件
+			fi, err := os.Create(".\\server\\"+string(data[0:wc]))
 			if err != nil {
 				fmt.Println("file create error")
 			}
-			fmt.Println("the name of file is :" + string(data[0:wc]))
 			for {
-				c, err := tcpcon.Read(data)
+				data := make([]byte, 1024)
+				wd, err := tcpcon.Read(data)
 				if err != nil {
-					fmt.Println("read error")
+					fmt.Println("connection read error")
 				}
-				if string(data[0:c]) == "filerecvend" {
-					fmt.Println("write complete ")
+				if string(data[0:wd]) == "filerecvend" {
 					break
 				}
-				_, err = fo.Write(data[0:c])
+				_, err = fi.Write(data[0:wd])
 				if err != nil {
 					fmt.Println("file write error")
+					break
 				}
-			}
+			}			
 		} else {
-			fi, _ := os.Open(".\\server\\" + file)
+			//接受文件名
+		    data := make([]byte, 1024)
+			wc, err := tcpcon.Read(data)
+			fi, err := os.Open(".\\server\\"+string(data[0:wc]))
 			if err != nil {
-				panic(err)
+				fmt.Println("file open error")
 			}
-			defer fi.Close()
+			fmt.Println("the name of file you download is " + string(data[0:wc]))
+			//发送文件
 			fiinfo, err := fi.Stat()
 			fmt.Println("the size of file is ", fiinfo.Size(), "bytes")
-			//send filename
-			_, err = tcpcon.Write([]byte(file))
-			if err != nil {
-				fmt.Println("file name send error")
-			}
 			buff := make([]byte, 1024)
 			for {
 				n, err := fi.Read(buff)
@@ -74,7 +80,19 @@ func TCPServer(address ,file string, port int, test bool) {
 					fmt.Println("write error")
 				}
 			}
+			fi.Close()
 		}
-		return
+		fmt.Println("file transmission end,and if you want to transmission again,please input ok,else input exit")
+		inputReader := bufio.NewReader(os.Stdin)
+		input, err := inputReader.ReadString('\n')
+		var ex string
+		ex ="exit\r\n"
+		ts :=strings.Compare(input,ex)
+		if ts==0{
+			return 
+		} else{
+			fmt.Println("the server is listening")
+		}
 	}
 }
+  

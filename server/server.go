@@ -14,94 +14,101 @@ import (
 	"log"
 	"math/big"
 	"os"
-	"time"
+//	"time"
 	"strings"
-	"math"
 	"github.com/lucas-clemente/quic-go"
 )
 
 // Server 启动服务端
-func Server(address, file string, test bool) {
+func Server(address string, test bool)  {
 	listener, err := quic.ListenAddr(address, generateTLSConfig(), nil)
 	if err != nil {
 		log.Fatalf("listen error: %v\n", err)
+	} else {
+		fmt.Println("the server is listening")
 	}
-	sess, err := listener.Accept()
-	if err != nil {
-		log.Printf("accept session error: %v\n", err)
-	}
-	for ts:=0;math.Abs(float64(ts))<=0;{
-		if test {
-			stream, err := sess.AcceptStream()
+	for {
+			sess, err := listener.Accept()
+			defer sess.Close()
 			if err != nil {
-				log.Printf("accept stream error: %v\n", err)
-				return
+			log.Printf("accept session error: %v\n", err)
 			}
-			buf, err := WriteFile(file)
-			if err != nil {
-				log.Printf("open file error: %v\n", err)
-				continue
-			}
-			//接受文件
-			recvByte, err := io.Copy(buf, stream)
-			buf.Flush()
-			if err != nil {
-				log.Printf("write file error: %v\n", err)
-			}
-			fmt.Printf("recv %d bytes\n", recvByte)
-			//MD5加密算法，发送密文
-			var n []byte
-			_,err =buf.Write(n)
-			h := md5.New()
-			h.Write(n)
-			s := hex.EncodeToString(h.Sum(nil))
-            streams,err :=sess.OpenStreamSync()
-		    p :=strings.NewReader(s)
-		    _, err = io.Copy(streams, p)
-		    if err !=nil{
-              log.Printf("secret send err: %v\n",err)
-		    }
-			streams.Close()	
-			fmt.Println("file upload end,and if you want to upload again,please input ok,else input exit")	
-		} else if test == false {
-			stream, err := sess.OpenStreamSync()
-			if err != nil {
-				log.Fatalf("open stream error: %v\n", err)
-			}
-			data, _ := ReadFile(file)
-			//MD5加密算法，验证文件完整性
-			var m []byte
-			_,err =data.Read(m)
-			h := md5.New()
-			h.Write(m)
-			s := hex.EncodeToString(h.Sum(nil))
-	        //发送文件
-			sendBytes, err := io.Copy(stream, data)
-			if err != nil {
-				log.Fatalf("write stream error: %v\n", err)
-			}
-			fmt.Printf("send %d \n", sendBytes)
-			stream.Close()
-			//接受密文
-			streams,err :=sess.AcceptStream()
-			str :=bufio.NewReader(streams)
-			var w []byte
-			_, err =str.Read(w)
-			t :=strings.Compare(s,string(w))
-			if t!=0 {
-				log.Fatalf("file transmissison err:%v\n",err)
-			} else{
-				time.Sleep(time.Millisecond * 1)
+			if test {
+				stream, err := sess.AcceptStream()
+				if err != nil {
+					log.Printf("accept stream error: %v\n", err)
+					return
+				}
+				//接受文件名
+				data := make([]byte, 1024)
+				wc, err := stream.Read(data)
+				fmt.Println("the name of file is " + string(data[0:wc]))
+				//接受文件
+				files :=string(data[0:wc])
+				buf, err := WriteFile(files)
+				recvByte, err := io.Copy(buf, stream)
+				buf.Flush()
+				if err != nil {
+					log.Printf("write file error: %v\n", err)
+				}
+				fmt.Printf("recv %d bytes\n", recvByte)
+				stream.Close()
+				//MD5加密算法，发送密文
+				streams,err :=sess.OpenStreamSync()
+				var n []byte
+				fp,err:=os.Open(files)
+				_,err =fp.Read(n)
+				h := md5.New()
+				h.Write(n)
+				s := hex.EncodeToString(h.Sum(nil))
+				_,err =streams.Write([] byte(s))
+				if err !=nil{
+				log.Printf("secret send err: %v\n",err)
+				}
+				streams.Close()	
+			} else if test == false {
+				//接受文件名
+				streams,err :=sess.AcceptStream()
+				data := make([]byte, 1024)
+				wc, err := streams.Read(data)
+				fmt.Println("the name of file is " + string(data[0:wc]))
 				streams.Close()
-			}	
-			fmt.Println("file download end,and if you want to download again,please input ok,else input exit")
+				//MD5加密算法，发送密文
+				stream,err :=sess.OpenStreamSync()
+				if err != nil {
+					log.Fatalf("open stream error: %v\n", err)
+				}
+				var n []byte
+				fp,err:=os.Open(string(data[0:wc]))
+				_,err =fp.Read(n)
+				h := md5.New()
+				h.Write(n)
+				s := hex.EncodeToString(h.Sum(nil))
+				_,err =stream.Write([] byte(s))
+				if err !=nil{
+				log.Printf("secret send err: %v\n",err)
+				}
+				//发送文件
+				datas, _ := ReadFile(string(data[0:wc]))
+				sendBytes, err := io.Copy(stream, datas)
+				if err != nil {
+					log.Fatalf("write stream error: %v\n", err)
+				}
+				fmt.Printf("send %d bytes\n", sendBytes)
+				stream.Close()
+			}
+		fmt.Println("file transmission end,and if you want to transmission again,please input ok,else input exit")
+		inputReader := bufio.NewReader(os.Stdin)
+		input, err := inputReader.ReadString('\n')
+		var ex string
+		ex ="exit\r\n"
+		ts :=strings.Compare(input,ex)
+		if ts==0{
+			return 
+		} else{
+			fmt.Println("the server is listening")
 		}
-		var end string
-		fmt.Scanf(end)
-		ts =strings.Compare(end,"ok")
 	}
-	sess.Close()
-	return 
 }
 
 // WriteFile 写入文件
@@ -115,7 +122,7 @@ func WriteFile(file string) (*bufio.Writer, error) {
 
 // ReadFile 读取文件
 func ReadFile(file string) (*bufio.Reader, int64) {
-	fp, err := os.Open(file)
+	fp, err := os.Open(".\\server\\"+file)
 	if err != nil {
 		log.Fatalf("open file error: %v\n", err)
 	}

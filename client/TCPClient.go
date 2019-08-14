@@ -16,20 +16,19 @@ func TCPClient(address ,file string, test bool) {
 		fmt.Println("connect server fail！")
 		return
 	}
-	defer conn.Close()
 	if test {
-		fi, err := os.Open(file)
+		fi, err := os.Open(".\\client\\"+file)
 		if err != nil {
 			panic(err)
 		}
-		defer fi.Close()
 		fiinfo, err := fi.Stat()
 		fmt.Println("the size of file is ", fiinfo.Size(), "bytes") //fiinfo.Size() return int64 type
-		//send filename
+		//发送文件名
 		_, err = conn.Write([] byte(file))
 		if err != nil {
 			fmt.Println("name send error")
 		}
+		//发送文件
 		buff := make([]byte, 1024)
 		for {
 			n, err := fi.Read(buff)
@@ -45,21 +44,26 @@ func TCPClient(address ,file string, test bool) {
 				fmt.Println(err.Error())
 			}
 		}
+		fi.Close()
 	} else if test == false {
-		data := make([]byte, 1024)
-		wc, err := conn.Read(data)
-		fi, err := os.Create(string(data[0:wc]))
+		//发送文件名
+		_, err = conn.Write([] byte(file))
 		if err != nil {
-			fmt.Println("file create error")
+			fmt.Println("name send error")
 		}
-		fmt.Println("the name of file is " + string(data[0:wc]))
+		fmt.Println("the name you has download is :"+file)
+        //接受文件
+		fi, err := os.Create(".\\client\\"+file)
+		if err != nil {
+		    fmt.Println("file create error")
+		}
 		for {
+			data := make([]byte, 1024)
 			wd, err := conn.Read(data)
 			if err != nil {
 				fmt.Println("connection read error")
 			}
 			if string(data[0:wd]) == "filerecvend" {
-				fmt.Println("file write complete")
 				break
 			}
 			_, err = fi.Write(data[0:wd])
@@ -68,6 +72,7 @@ func TCPClient(address ,file string, test bool) {
 				break
 			}
 		}
+		fi.Close()
 	}
 	conn.Close()
 	fmt.Println("client close!")
