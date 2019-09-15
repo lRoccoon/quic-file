@@ -1,4 +1,5 @@
 .vscode
 quic-file
-send.bin
-output.bin
+*.bin
+*.exe
+.DS_Store

@@ -2,13 +2,11 @@ package server
 
 import (
 	"bufio"
+	"context"
 
 	"crypto/tls"
-	"io"
 	"log"
 	"os"
-
-	"github.com/873314461/quic-file/common"
 
 	"github.com/lucas-clemente/quic-go"
 )
@@ -18,9 +16,9 @@ type FileServer struct {
 	Address    string
 	TLSConfig  *tls.Config
 	QuicConfig *quic.Config
-	Sessions   []*quic.Session
+	Sessions   map[int64]*quic.Session
 	Listener   quic.Listener
-	Streams    map[quic.StreamID]*quic.Stream
+	Ctx        context.Context
 }
 
 // NewFileServer 创建FileServer对象
@@ -29,8 +27,8 @@ func NewFileServer(address string, tlsConfig *tls.Config, quicConfig *quic.Confi
 		Address:    address,
 		TLSConfig:  tlsConfig,
 		QuicConfig: quicConfig,
-		Sessions:   make([]*quic.Session, 0),
-		Streams:    make(map[quic.StreamID]*quic.Stream, 0),
+		Sessions:   make(map[int64]*quic.Session, 0),
+		Ctx:        context.Background(),
 	}
 }
 
@@ -42,47 +40,15 @@ func (s *FileServer) Run() error {
 		log.Fatalf("listen error: %v\n", err)
 	}
 	for {
-		sess, err := s.Listener.Accept()
+		sess, err := s.Listener.Accept(s.Ctx)
 		if err != nil {
 			log.Printf("accept session error: %v\n", err)
 			continue
 		}
-		s.Sessions = append(s.Sessions, &sess)
 
-		go s.handler(&sess)
+		sessionHandler := NewSessionHandler(&sess)
+		go sessionHandler.Run()
 	}
-}
-
-func (s *FileServer) handler(session *quic.Session) {
-	sess := *session
-	cmdStream, err := sess.AcceptStream()
-	if err != nil && err.Error() != common.NoError || cmdStream == nil {
-		log.Printf("accept cmd stream error: %v, cmd: %v\n", err, cmdStream)
-		return
-	}
-	cmdReader := bufio.NewReader(cmdStream)
-	p := 0
-	data := make([]byte, 1024)
-	for ok := true; ok; {
-		for {
-			n, err := cmdReader.Read(data[p:])
-			if err != nil {
-				ok = false
-				if err == io.EOF || err.Error() == common.NoError {
-					break
-				}
-				log.Printf("read cmd stream error: %v\n", err)
-				break
-			}
-			p += n
-			log.Printf("recv cmd:%s\n", data)
-		}
-		err := handlerCMD(session, bufio.NewWriter(cmdStream), string(data))
-		if err != nil {
-			log.Printf("handler cmd error: %v\n", err)
-		}
-	}
-	sess.Close()
 }
 
 func writeFile(file string) (*bufio.Writer, error) {

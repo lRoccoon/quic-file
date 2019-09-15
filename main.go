@@ -9,25 +9,41 @@ import (
 	"flag"
 	"log"
 	"math/big"
+	"sync"
 
 	"github.com/873314461/quic-file/client"
 	"github.com/873314461/quic-file/server"
 )
 
 func main() {
-	isServer := flag.Bool("s", false, "server mode")
-	isClient := flag.Bool("c", false, "client mode")
+	serverAddr := flag.String("s", "", "server listen address")
+	clientAddr := flag.String("c", "", "client connect server address")
 	flag.Parse()
-
-	if (*isServer && *isClient) || (!*isServer && !*isClient) {
+	files := flag.Args()
+	if (len(*serverAddr) == 0 && len(*clientAddr) == 0) || (len(*serverAddr) != 0 && len(*clientAddr) != 0) {
 		log.Fatalln("server or client?")
 	}
-	if *isServer {
-		s := server.NewFileServer("[::]:8000", generateTLSConfig(), nil)
+	if len(*serverAddr) > 0 {
+		s := server.NewFileServer(*serverAddr, generateTLSConfig(), nil)
 		s.Run()
 	}
-	if *isClient {
-		client.Client("127.0.0.1:8000", "send.bin")
+	if len(*clientAddr) > 0 {
+		c := client.NewFileClient(*clientAddr)
+		var wg sync.WaitGroup
+		for _, file := range files {
+			wg.Add(1)
+			go func(file string) {
+				err := c.Upload(file)
+				if err != nil {
+					log.Printf("send file error: %v\n", err)
+				} else {
+					log.Printf("send file success: %s\n", file)
+				}
+				wg.Done()
+			}(file)
+		}
+		wg.Wait()
+		c.Close()
 	}
 }
 
