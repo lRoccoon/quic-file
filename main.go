@@ -18,6 +18,7 @@ import (
 func main() {
 	serverAddr := flag.String("s", "", "server listen address")
 	clientAddr := flag.String("c", "", "client connect server address")
+	downloadFlag := flag.Bool("d", false, "download file from server")
 	flag.Parse()
 	files := flag.Args()
 	if (len(*serverAddr) == 0 && len(*clientAddr) == 0) || (len(*serverAddr) != 0 && len(*clientAddr) != 0) {
@@ -33,11 +34,16 @@ func main() {
 		for _, file := range files {
 			wg.Add(1)
 			go func(file string) {
-				err := c.Upload(file)
-				if err != nil {
-					log.Printf("send file error: %v\n", err)
+				var err error
+				if *downloadFlag {
+					err = c.Download(file)
 				} else {
-					log.Printf("send file success: %s\n", file)
+					err = c.Upload(file)
+				}
+				if err != nil {
+					log.Printf("upload/download file error: %v\n", err)
+				} else {
+					log.Printf("upload/download file success: %s\n", file)
 				}
 				wg.Done()
 			}(file)

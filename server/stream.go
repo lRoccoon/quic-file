@@ -52,6 +52,10 @@ func (h *StreamHandler) Run() {
 		}
 	case 2:
 		log.Printf("download op: %d", op)
+		err := h.handlerDownload()
+		if err != nil {
+			log.Printf("handler download error: %v", err)
+		}
 	default:
 		log.Printf("unknow op: %d", op)
 	}
@@ -111,6 +115,44 @@ func (h *StreamHandler) handlerUpload() error {
 	err = os.Rename(tmpAbsPath, absPath)
 	if err != nil {
 		return fmt.Errorf("rename file error: %v", err)
+	}
+	return nil
+}
+
+func (h *StreamHandler) handlerDownload() error {
+	lenBytes := make([]byte, 2, 2)
+	readn, err := h.Reader.Read(lenBytes)
+	if err != nil {
+		return fmt.Errorf("read path len error: %v", err)
+	}
+	if readn != 2 {
+		return errors.New("readn != 2")
+	}
+	pathLen := binary.BigEndian.Uint16(lenBytes)
+
+	path := make([]byte, pathLen, pathLen)
+	readn, err = h.Reader.Read(path)
+	if err != nil {
+		return fmt.Errorf("read path error: %v", err)
+	}
+	if readn != int(pathLen) {
+		return errors.New("readn != path len")
+	}
+	file, err := os.Open(string(path))
+	if err != nil {
+		return fmt.Errorf("open file[%s] error: %v", string(path), err)
+	}
+	defer file.Close()
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return fmt.Errorf("get file[%s] info error: %v", string(path), err)
+	}
+	sendN, err := io.Copy(h.Writer, file)
+	if err != nil {
+		return fmt.Errorf("send file[%s] error: %v", string(path), err)
+	}
+	if sendN != fileInfo.Size() {
+		return errors.New("sendn != file size")
 	}
 	return nil
 }
